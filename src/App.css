@@ -282,6 +282,7 @@
 
 .floor-ticket {
   position: relative;
+  z-index: 1;
   flex: 0 0 clamp(390px, 40vw, 560px);
   max-height: min(72svh, 780px);
   overflow: auto;
@@ -306,9 +307,14 @@
 }
 
 .floor-ticket-active {
+  z-index: 4;
   border-color: rgb(210 159 55 / 0.9);
   opacity: 1;
   transform: scale(1);
+}
+
+.floor-ticket-selectable {
+  cursor: pointer;
 }
 
 .ticket-corners {
@@ -626,6 +632,45 @@
 
 .floor-progress-step-active .floor-progress-dot::after {
   background: #fff6db;
+}
+
+@media (min-width: 761px) {
+  .floor-carousel {
+    padding: 24px 2px 30px;
+  }
+
+  .floor-rail {
+    column-gap: 0;
+    align-items: center;
+  }
+
+  .floor-ticket {
+    margin-right: -54px;
+    opacity: 0.54;
+    filter: saturate(0.74) brightness(0.84);
+    transform: translateY(18px) scale(0.92);
+  }
+
+  .floor-ticket:last-child {
+    margin-right: 0;
+  }
+
+  .floor-ticket-active {
+    opacity: 1;
+    filter: none;
+    transform: translateY(-4px) scale(1.035);
+    box-shadow:
+      0 34px 80px rgb(0 0 0 / 0.5),
+      0 0 0 1px rgb(215 162 62 / 0.4),
+      inset 0 0 0 1px rgb(255 255 255 / 0.38);
+  }
+
+  .floor-ticket-selectable:hover,
+  .floor-ticket-selectable:focus-visible {
+    opacity: 0.76;
+    filter: saturate(0.88) brightness(0.94);
+    transform: translateY(10px) scale(0.945);
+  }
 }
 
 .calendar-copy {

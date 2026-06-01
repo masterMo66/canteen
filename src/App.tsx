@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties, PointerEvent, WheelEvent } from 'react'
+import type { CSSProperties, KeyboardEvent, PointerEvent, WheelEvent } from 'react'
 import {
   CalendarDays,
   ChevronLeft,
@@ -256,13 +256,36 @@ function FloorTicket({
   floor,
   active,
   cardRef,
+  onSelect,
 }: {
   floor: FloorMenu
   active: boolean
   cardRef?: (node: HTMLElement | null) => void
+  onSelect?: () => void
 }) {
+  const selectable = Boolean(onSelect && !active)
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (!selectable || (event.key !== 'Enter' && event.key !== ' ')) return
+
+    event.preventDefault()
+    onSelect?.()
+  }
+
   return (
-    <article className={active ? 'floor-ticket floor-ticket-active' : 'floor-ticket'} ref={cardRef}>
+    <article
+      aria-label={selectable ? `切换到${floor.label}` : undefined}
+      className={[
+        'floor-ticket',
+        active ? 'floor-ticket-active' : '',
+        selectable ? 'floor-ticket-selectable' : '',
+      ].filter(Boolean).join(' ')}
+      onClick={selectable ? onSelect : undefined}
+      onKeyDown={handleKeyDown}
+      ref={cardRef}
+      role={selectable ? 'button' : undefined}
+      tabIndex={selectable ? 0 : undefined}
+    >
       <div className="ticket-corners" aria-hidden="true" />
       <header className="floor-ticket-header">
         <div>
@@ -319,21 +342,36 @@ function FloorShowcase({
   onFloorChange: (index: number) => void
 }) {
   const floors = useMemo(() => buildFloors(day), [day])
+  const carouselRef = useRef<HTMLDivElement | null>(null)
   const railRef = useRef<HTMLDivElement | null>(null)
   const measuredCardRef = useRef<HTMLElement | null>(null)
   const dragStartX = useRef<number | null>(null)
+  const suppressCardClick = useRef(false)
   const wheelLocked = useRef(false)
-  const [cardStep, setCardStep] = useState(0)
+  const [isDesktop, setIsDesktop] = useState(false)
+  const [railMetrics, setRailMetrics] = useState({
+    cardStep: 0,
+    cardWidth: 0,
+    carouselWidth: 0,
+  })
 
   useEffect(() => {
     const measure = () => {
+      const carousel = carouselRef.current
       const rail = railRef.current
       const card = measuredCardRef.current
 
-      if (!rail || !card) return
+      if (!carousel || !rail || !card) return
 
+      const secondCard = rail.children[1] as HTMLElement | undefined
       const gap = Number.parseFloat(window.getComputedStyle(rail).columnGap || '0')
-      setCardStep(card.getBoundingClientRect().width + gap)
+
+      setIsDesktop(window.matchMedia('(min-width: 761px)').matches)
+      setRailMetrics({
+        cardStep: secondCard ? secondCard.offsetLeft - card.offsetLeft : card.offsetWidth + gap,
+        cardWidth: card.offsetWidth,
+        carouselWidth: carousel.clientWidth,
+      })
     }
 
     measure()
@@ -344,6 +382,7 @@ function FloorShowcase({
     }
 
     const observer = new ResizeObserver(measure)
+    if (carouselRef.current) observer.observe(carouselRef.current)
     observer.observe(measuredCardRef.current)
     return () => observer.disconnect()
   }, [day])
@@ -363,7 +402,11 @@ function FloorShowcase({
     dragStartX.current = null
 
     if (Math.abs(distance) < 46) return
+    suppressCardClick.current = true
     switchFloor(activeFloor + (distance < 0 ? 1 : -1))
+    window.setTimeout(() => {
+      suppressCardClick.current = false
+    }, 0)
   }
 
   const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
@@ -379,14 +422,17 @@ function FloorShowcase({
     }, 430)
   }
 
+  const centeredOffset = isDesktop ? (railMetrics.carouselWidth - railMetrics.cardWidth) / 2 : 0
+
   const railStyle = {
-    transform: `translate3d(${-activeFloor * cardStep}px, 0, 0)`,
+    transform: `translate3d(${centeredOffset - activeFloor * railMetrics.cardStep}px, 0, 0)`,
   } satisfies CSSProperties
 
   return (
     <section className="floor-showcase" aria-label={`${day.weekday}${day.label}楼层菜单`}>
       <div
         className="floor-carousel"
+        ref={carouselRef}
         onPointerDown={handlePointerDown}
         onPointerLeave={() => {
           dragStartX.current = null
@@ -403,6 +449,10 @@ function FloorShowcase({
               } : undefined}
               floor={floor}
               key={floor.id}
+              onSelect={isDesktop && activeFloor !== index ? () => {
+                if (suppressCardClick.current) return
+                switchFloor(index)
+              } : undefined}
             />
           ))}
         </div>
