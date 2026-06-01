@@ -1,0 +1,61 @@
+:root {
+  --ink: #12100f;
+  --muted: #6f6b66;
+  --faint: #8b8782;
+  --surface: #ffffff;
+  --page: #ffffff;
+  --line: #dedbd5;
+  --line-soft: #ece9e3;
+  --red: #b01826;
+  --green: #18724f;
+  --green-soft: #e8f3ed;
+  --shadow: 0 18px 46px rgb(18 16 15 / 0.08);
+  --sans:
+    -apple-system,
+    BlinkMacSystemFont,
+    'PingFang SC',
+    'Hiragino Sans GB',
+    'Microsoft YaHei',
+    'Noto Sans CJK SC',
+    'Segoe UI',
+    sans-serif;
+
+  color: var(--ink);
+  background: var(--page);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.5;
+  letter-spacing: 0;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--page);
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background:
+    linear-gradient(180deg, rgb(24 114 79 / 0.035), transparent 340px),
+    var(--page);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+img,
+svg {
+  flex-shrink: 0;
+}
