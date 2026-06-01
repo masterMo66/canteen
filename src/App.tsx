@@ -21,6 +21,7 @@ import './App.css'
 
 type TabKey = 'today' | 'calendar'
 type FloorId = '1f' | '2f' | '3f'
+type MealType = 'breakfast' | 'lunch' | 'dinner'
 
 type FloorMenu = {
   id: FloorId
@@ -39,37 +40,91 @@ const floorLabels = [
   { id: '3f' as const, number: '3', label: '3楼', shortLabel: '3F' },
 ]
 
-function getShanghaiDateKey() {
+const mealTypeOptions = [
+  { type: 'breakfast' as const, label: '早餐', icon: Sunrise },
+  { type: 'lunch' as const, label: '午餐', icon: Utensils },
+  { type: 'dinner' as const, label: '晚餐', icon: Moon },
+]
+
+const mealTypeLabels: Record<MealType, string> = {
+  breakfast: '早餐',
+  lunch: '午餐',
+  dinner: '晚餐',
+}
+
+const mealTypeTimes: Record<MealType, string> = {
+  breakfast: '07:00-09:00',
+  lunch: '11:00-13:30',
+  dinner: '17:00-19:00',
+}
+
+function getShanghaiDateParts(now = new Date()) {
   const parts = new Intl.DateTimeFormat('zh-CN', {
     timeZone: 'Asia/Shanghai',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  }).formatToParts(new Date())
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(now)
 
   const year = parts.find((part) => part.type === 'year')?.value
   const month = parts.find((part) => part.type === 'month')?.value
   const day = parts.find((part) => part.type === 'day')?.value
+  const hour = parts.find((part) => part.type === 'hour')?.value
+  const minute = parts.find((part) => part.type === 'minute')?.value
+
+  return {
+    dateKey: `${year}-${month}-${day}`,
+    hour: Number(hour),
+    minute: Number(minute),
+  }
+}
+
+function dateKeyToUtcDate(dateKey: string) {
+  const [year, month, day] = dateKey.split('-').map(Number)
+  return new Date(Date.UTC(year, month - 1, day))
+}
+
+function addDaysToDateKey(dateKey: string, days: number) {
+  const date = dateKeyToUtcDate(dateKey)
+  date.setUTCDate(date.getUTCDate() + days)
+
+  const year = date.getUTCFullYear()
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(date.getUTCDate()).padStart(2, '0')
 
   return `${year}-${month}-${day}`
 }
 
-function getRequestedDateKey() {
-  if (typeof window === 'undefined') {
-    return getShanghaiDateKey()
-  }
+function getAutoMealState(now = new Date()) {
+  const { dateKey, hour, minute } = getShanghaiDateParts(now)
+  const minutes = hour * 60 + minute
 
-  return new URLSearchParams(window.location.search).get('date') ?? getShanghaiDateKey()
+  if (minutes < 8 * 60 + 40) return { activeDate: dateKey, mealType: 'breakfast' as const }
+  if (minutes < 12 * 60 + 30) return { activeDate: dateKey, mealType: 'lunch' as const }
+  if (minutes < 18 * 60 + 30) return { activeDate: dateKey, mealType: 'dinner' as const }
+
+  return { activeDate: addDaysToDateKey(dateKey, 1), mealType: 'breakfast' as const }
 }
 
-function getVisibleDay() {
+function getRequestedDateKey() {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  return new URLSearchParams(window.location.search).get('date')
+}
+
+function getInitialTodayState() {
+  const autoState = getAutoMealState()
   const requestedDate = getRequestedDateKey()
-  const day = menuDays.find((menuDay) => menuDay.date === requestedDate)
 
   return {
-    day: day ?? menuDays[0],
-    isFallback: !day,
-    requestedDate,
+    ...autoState,
+    activeDate: requestedDate ?? autoState.activeDate,
+    hasDateOverride: Boolean(requestedDate),
   }
 }
 
@@ -112,12 +167,50 @@ function buildFloors(day: MenuDay): FloorMenu[] {
   ]
 }
 
+function getClosestMenuDay(dateKey: string) {
+  const targetTime = dateKeyToUtcDate(dateKey).getTime()
+
+  return menuDays.reduce((closest, day) => {
+    const closestDistance = Math.abs(dateKeyToUtcDate(closest.date).getTime() - targetTime)
+    const nextDistance = Math.abs(dateKeyToUtcDate(day.date).getTime() - targetTime)
+
+    return nextDistance < closestDistance ? day : closest
+  }, menuDays[0])
+}
+
+function getVisibleDay(activeDate: string) {
+  const day = menuDays.find((menuDay) => menuDay.date === activeDate)
+
+  return {
+    day: day ?? getClosestMenuDay(activeDate),
+    isFallback: !day,
+    requestedDate: activeDate,
+  }
+}
+
 function countDishes(meal: Meal) {
   return meal.sections.reduce((sum, section) => sum + section.items.length, 0)
 }
 
-function countFloorDishes(floor: FloorMenu) {
-  return floor.meals.reduce((sum, meal) => sum + countDishes(meal), 0)
+function countMealsDishes(meals: Meal[]) {
+  return meals.reduce((sum, meal) => sum + countDishes(meal), 0)
+}
+
+function getMealType(meal: Meal): MealType | null {
+  if (meal.name.includes('早餐') || meal.time.includes('早餐')) return 'breakfast'
+  if (meal.name.includes('午餐') || meal.name.includes('中餐') || meal.time.includes('午餐') || meal.time.includes('中餐')) {
+    return 'lunch'
+  }
+  if (meal.name.includes('晚餐') || meal.time.includes('晚餐')) return 'dinner'
+  if (isThirdFloorMeal(meal)) return 'lunch'
+
+  return null
+}
+
+function getMealsByType(meals: Meal[], mealType?: MealType) {
+  if (!mealType) return meals
+
+  return meals.filter((meal) => getMealType(meal) === mealType)
 }
 
 function renderMealIcon(name: string) {
@@ -149,21 +242,48 @@ function clampFloor(index: number) {
   return Math.max(0, Math.min(floorLabels.length - 1, index))
 }
 
-function mealTimeLabel(meal: Meal) {
+function mealTimeLabel(meal: Meal, mealType?: MealType) {
+  if (mealType) return mealTypeTimes[mealType]
   if (meal.name.includes('早餐')) return meal.time.includes('供应') ? '晨间供应' : meal.time
   if (meal.name.includes('午餐')) return meal.time.includes('堂食') ? '11:00-13:30' : meal.time
   if (meal.name.includes('晚餐')) return meal.time.includes('堂食') ? '17:00-19:00' : meal.time
   return meal.time
 }
 
+function formatDateKeyLine(dateKey: string, knownDay?: MenuDay) {
+  if (knownDay?.date === dateKey) return formatDateLine(knownDay)
+
+  const date = dateKeyToUtcDate(dateKey)
+  const parts = new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'UTC',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    weekday: 'long',
+  }).formatToParts(date)
+  const year = parts.find((part) => part.type === 'year')?.value
+  const month = parts.find((part) => part.type === 'month')?.value
+  const day = parts.find((part) => part.type === 'day')?.value
+  const weekday = parts.find((part) => part.type === 'weekday')?.value
+
+  return `${year}.${month}.${day} ${weekday}`
+}
+
+function formatDateKeyShort(dateKey: string) {
+  const [, month, day] = dateKey.split('-')
+  return `${Number(month)}月${Number(day)}日`
+}
+
 function ArchiveNav({
   activeTab,
   onTabChange,
   activeDay,
+  activeDate,
 }: {
   activeTab: TabKey
   onTabChange: (tab: TabKey) => void
   activeDay: MenuDay
+  activeDate: string
 }) {
   return (
     <nav className="archive-nav" aria-label="食堂页面">
@@ -195,9 +315,35 @@ function ArchiveNav({
 
       <div className="nav-date">
         <CalendarDays size={17} strokeWidth={1.8} aria-hidden="true" />
-        <span>{activeTab === 'today' ? formatDateLine(activeDay) : `菜单周期 ${formatMenuRangeLabel()}`}</span>
+        <span>{activeTab === 'today' ? formatDateKeyLine(activeDate, activeDay) : `菜单周期 ${formatMenuRangeLabel()}`}</span>
       </div>
     </nav>
+  )
+}
+
+function MealTypeSelector({
+  mealType,
+  onMealTypeChange,
+}: {
+  mealType: MealType
+  onMealTypeChange: (mealType: MealType) => void
+}) {
+  return (
+    <div className="meal-type-selector" role="radiogroup" aria-label="选择用餐时段">
+      {mealTypeOptions.map(({ type, label, icon: Icon }) => (
+        <button
+          aria-checked={mealType === type}
+          className={mealType === type ? 'meal-type-option meal-type-option-active' : 'meal-type-option'}
+          key={type}
+          onClick={() => onMealTypeChange(type)}
+          role="radio"
+          type="button"
+        >
+          <Icon size={15} strokeWidth={1.9} aria-hidden="true" />
+          <span>{label}</span>
+        </button>
+      ))}
+    </div>
   )
 }
 
@@ -229,15 +375,17 @@ function FloorProgress({
   )
 }
 
-function MealArchive({ meal }: { meal: Meal }) {
+function MealArchive({ meal, mealType }: { meal: Meal; mealType?: MealType }) {
+  const mealTitle = mealType ? mealTypeLabels[mealType] : meal.name
+
   return (
     <article className="meal-archive">
       <header className="meal-archive-header">
         <div className="meal-archive-title">
-          {renderMealIcon(meal.name)}
-          <span>{meal.name}</span>
+          {renderMealIcon(mealTitle)}
+          <span>{mealTitle}</span>
         </div>
-        <span className="meal-time-badge">{mealTimeLabel(meal)}</span>
+        <span className="meal-time-badge">{mealTimeLabel(meal, mealType)}</span>
       </header>
 
       <div className="menu-lines">
@@ -255,15 +403,19 @@ function MealArchive({ meal }: { meal: Meal }) {
 function FloorTicket({
   floor,
   active,
+  mealType,
   cardRef,
   onSelect,
 }: {
   floor: FloorMenu
   active: boolean
+  mealType?: MealType
   cardRef?: (node: HTMLElement | null) => void
   onSelect?: () => void
 }) {
   const selectable = Boolean(onSelect && !active)
+  const visibleMeals = getMealsByType(floor.meals, mealType)
+  const emptyText = mealType ? `本楼层暂无${mealTypeLabels[mealType]}菜单` : '本日暂无该楼层菜单。'
 
   const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (!selectable || (event.key !== 'Enter' && event.key !== ' ')) return
@@ -317,15 +469,17 @@ function FloorTicket({
       <div className="ticket-divider" aria-hidden="true" />
 
       <div className="ticket-meals">
-        {floor.meals.length > 0 ? (
-          floor.meals.map((meal) => <MealArchive meal={meal} key={`${floor.id}-${meal.name}`} />)
+        {visibleMeals.length > 0 ? (
+          visibleMeals.map((meal) => (
+            <MealArchive meal={meal} mealType={mealType} key={`${floor.id}-${mealType ?? 'all'}-${meal.name}`} />
+          ))
         ) : (
-          <p className="empty-floor">本日暂无该楼层菜单。</p>
+          <p className="empty-floor">{emptyText}</p>
         )}
       </div>
 
       <footer className="ticket-footnote">
-        <span>{countFloorDishes(floor)} 道餐品</span>
+        <span>{countMealsDishes(visibleMeals)} 道餐品</span>
         <span>以餐厅实际供应为准</span>
       </footer>
     </article>
@@ -336,10 +490,12 @@ function FloorShowcase({
   day,
   activeFloor,
   onFloorChange,
+  mealType,
 }: {
   day: MenuDay
   activeFloor: number
   onFloorChange: (index: number) => void
+  mealType?: MealType
 }) {
   const floors = useMemo(() => buildFloors(day), [day])
   const carouselRef = useRef<HTMLDivElement | null>(null)
@@ -449,6 +605,7 @@ function FloorShowcase({
               } : undefined}
               floor={floor}
               key={floor.id}
+              mealType={mealType}
               onSelect={isDesktop && activeFloor !== index ? () => {
                 if (suppressCardClick.current) return
                 switchFloor(index)
@@ -479,10 +636,16 @@ function FloorShowcase({
 
 function TodayView({
   day,
+  activeDate,
+  mealType,
+  onMealTypeChange,
   isFallback,
   requestedDate,
 }: {
   day: MenuDay
+  activeDate: string
+  mealType: MealType
+  onMealTypeChange: (mealType: MealType) => void
   isFallback: boolean
   requestedDate: string
 }) {
@@ -492,21 +655,26 @@ function TodayView({
     <section className="screen-grid today-screen" role="tabpanel">
       <div className="screen-copy">
         <h1>今日食堂</h1>
-        <p className="screen-date">
-          <CalendarDays size={20} strokeWidth={1.8} aria-hidden="true" />
-          {formatDateLine(day)}
-        </p>
-        <p className="screen-range">菜单周期：{formatMenuRangeLabel()}</p>
-        {isFallback && (
-          <p className="coverage-note">当前日期 {requestedDate} 不在本周菜单范围内，暂显示 {day.label} 的餐谱。</p>
-        )}
+        <div className="today-meta-panel">
+          <p className="screen-date">
+            <CalendarDays size={20} strokeWidth={1.8} aria-hidden="true" />
+            {formatDateKeyLine(activeDate, day)}
+          </p>
+          <p className="screen-range">菜单周期：{formatMenuRangeLabel()}</p>
+          <MealTypeSelector mealType={mealType} onMealTypeChange={onMealTypeChange} />
+          {isFallback && (
+            <p className="coverage-note">
+              暂无 {formatDateKeyShort(requestedDate)}{mealTypeLabels[mealType]}菜单，暂显示 {day.label} 的餐谱。
+            </p>
+          )}
+        </div>
         <div className="swipe-hint">
           <span aria-hidden="true">↔</span>
           左右滑动切换楼层
         </div>
       </div>
 
-      <FloorShowcase activeFloor={activeFloor} day={day} onFloorChange={setActiveFloor} />
+      <FloorShowcase activeFloor={activeFloor} day={day} mealType={mealType} onFloorChange={setActiveFloor} />
     </section>
   )
 }
@@ -579,16 +747,56 @@ function CalendarView({ initialDay }: { initialDay: MenuDay }) {
 }
 
 function App() {
-  const { day, isFallback, requestedDate } = useMemo(() => getVisibleDay(), [])
+  const initialTodayState = useMemo(() => getInitialTodayState(), [])
+  const [activeDate, setActiveDate] = useState(initialTodayState.activeDate)
+  const [mealType, setMealType] = useState<MealType>(initialTodayState.mealType)
+  const manualMealSelection = useRef(false)
+  const { day, isFallback, requestedDate } = useMemo(() => getVisibleDay(activeDate), [activeDate])
   const [activeTab, setActiveTab] = useState<TabKey>('today')
+
+  useEffect(() => {
+    if (initialTodayState.hasDateOverride) return undefined
+
+    const intervalId = window.setInterval(() => {
+      const nextAutoState = getAutoMealState()
+
+      setActiveDate((currentActiveDate) => {
+        if (currentActiveDate !== nextAutoState.activeDate) {
+          manualMealSelection.current = false
+          setMealType(nextAutoState.mealType)
+          return nextAutoState.activeDate
+        }
+
+        if (!manualMealSelection.current) {
+          setMealType(nextAutoState.mealType)
+        }
+
+        return currentActiveDate
+      })
+    }, 60_000)
+
+    return () => window.clearInterval(intervalId)
+  }, [initialTodayState.hasDateOverride])
+
+  const handleMealTypeChange = (nextMealType: MealType) => {
+    manualMealSelection.current = true
+    setMealType(nextMealType)
+  }
 
   return (
     <main className="app-shell">
       <img className="ambient-food" src={canteenSpread} alt="" aria-hidden="true" />
-      <ArchiveNav activeDay={day} activeTab={activeTab} onTabChange={setActiveTab} />
+      <ArchiveNav activeDate={activeDate} activeDay={day} activeTab={activeTab} onTabChange={setActiveTab} />
 
       {activeTab === 'today' ? (
-        <TodayView day={day} isFallback={isFallback} requestedDate={requestedDate} />
+        <TodayView
+          activeDate={activeDate}
+          day={day}
+          isFallback={isFallback}
+          mealType={mealType}
+          onMealTypeChange={handleMealTypeChange}
+          requestedDate={requestedDate}
+        />
       ) : (
         <CalendarView initialDay={day} />
       )}
