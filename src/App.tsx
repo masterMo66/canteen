@@ -52,12 +52,6 @@ const mealTypeLabels: Record<MealType, string> = {
   dinner: '晚餐',
 }
 
-const mealTypeTimes: Record<MealType, string> = {
-  breakfast: '07:00-09:00',
-  lunch: '11:00-13:30',
-  dinner: '17:00-19:00',
-}
-
 function getShanghaiDateParts(now = new Date()) {
   const parts = new Intl.DateTimeFormat('zh-CN', {
     timeZone: 'Asia/Shanghai',
@@ -242,14 +236,6 @@ function clampFloor(index: number) {
   return Math.max(0, Math.min(floorLabels.length - 1, index))
 }
 
-function mealTimeLabel(meal: Meal, mealType?: MealType) {
-  if (mealType) return mealTypeTimes[mealType]
-  if (meal.name.includes('早餐')) return meal.time.includes('供应') ? '晨间供应' : meal.time
-  if (meal.name.includes('午餐')) return meal.time.includes('堂食') ? '11:00-13:30' : meal.time
-  if (meal.name.includes('晚餐')) return meal.time.includes('堂食') ? '17:00-19:00' : meal.time
-  return meal.time
-}
-
 function formatDateKeyLine(dateKey: string, knownDay?: MenuDay) {
   if (knownDay?.date === dateKey) return formatDateLine(knownDay)
 
@@ -385,7 +371,6 @@ function MealArchive({ meal, mealType }: { meal: Meal; mealType?: MealType }) {
           {renderMealIcon(mealTitle)}
           <span>{mealTitle}</span>
         </div>
-        <span className="meal-time-badge">{mealTimeLabel(meal, mealType)}</span>
       </header>
 
       <div className="menu-lines">
