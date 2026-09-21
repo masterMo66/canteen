@@ -737,7 +737,16 @@ function App() {
   const [mealType, setMealType] = useState<MealType>(initialTodayState.mealType)
   const manualMealSelection = useRef(false)
   const { day, isFallback, requestedDate } = useMemo(() => getVisibleDay(activeDate), [activeDate])
-  const [activeTab, setActiveTab] = useState<TabKey>('today')
+  const [activeTab, setActiveTab] = useState<TabKey>(() =>
+    new URLSearchParams(window.location.search).get('view') === 'calendar' ? 'calendar' : 'today',
+  )
+
+  const handleTabChange = (tab: TabKey) => {
+    setActiveTab(tab)
+    const url = new URL(window.location.href)
+    url.searchParams.set('view', tab)
+    window.history.replaceState(null, '', url)
+  }
 
   useEffect(() => {
     if (initialTodayState.hasDateOverride) return undefined
@@ -771,7 +780,7 @@ function App() {
   return (
     <main className="app-shell">
       <img className="ambient-food" src={canteenSpread} alt="" aria-hidden="true" />
-      <ArchiveNav activeDate={activeDate} activeDay={day} activeTab={activeTab} onTabChange={setActiveTab} />
+      <ArchiveNav activeDate={activeDate} activeDay={day} activeTab={activeTab} onTabChange={handleTabChange} />
 
       {activeTab === 'today' ? (
         <TodayView
