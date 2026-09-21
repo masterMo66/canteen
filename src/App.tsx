@@ -148,14 +148,14 @@ function buildFloors(day: MenuDay): FloorMenu[] {
       ...floorLabels[1],
       restaurantName: '蜀王餐厅 2楼',
       location: '二楼餐区',
-      source: shuwang?.source ?? '蜀王餐厅一周菜单6.1-6.5.xlsx',
+      source: shuwang?.source ?? '蜀王餐厅一周菜单',
       meals: secondFloorMeals,
     },
     {
       ...floorLabels[2],
       restaurantName: '三楼餐区',
       location: '蜀王餐厅三楼',
-      source: shuwang?.source ?? '蜀王餐厅一周菜单6.1-6.5.xlsx',
+      source: shuwang?.source ?? '蜀王餐厅一周菜单',
       meals: thirdFloorMeals,
     },
   ]
@@ -219,7 +219,7 @@ function renderMealIcon(name: string) {
 }
 
 function formatDateLine(day: MenuDay) {
-  return `2026.${day.label.replace('月', '.').replace('日', '')} ${day.weekday}`
+  return `${day.date.slice(0, 4)}.${day.label.replace('月', '.').replace('日', '')} ${day.weekday}`
 }
 
 function compactDate(dateKey: string) {
@@ -701,11 +701,11 @@ function CalendarView({ initialDay }: { initialDay: MenuDay }) {
         <h1>食堂日历</h1>
         <p className="screen-date">
           <Clock3 size={20} strokeWidth={1.8} aria-hidden="true" />
-          完整周一到周五菜单
+          本期完整菜单（含调休供餐日）
         </p>
         <p className="screen-range">选择日期后，继续滑动查看 1楼、2楼、3楼完整菜单。</p>
 
-        <div className="week-strip" aria-label="周一到周五菜单">
+        <div className="week-strip" aria-label="本期供餐日期">
           {menuDays.map((day) => (
             <DayTicket
               active={day.date === selectedDay.date}

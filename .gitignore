@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 .playwright-mcp
+.local-python/
+.local-tools/
+__pycache__/
 
 # Editor directories and files
 .vscode/*

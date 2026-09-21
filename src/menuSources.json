@@ -1,0 +1,18 @@
+{
+  "range": [
+    "2026-09-20",
+    "2026-09-24"
+  ],
+  "sources": [
+    {
+      "restaurant": "huangshan-1f",
+      "filename": "黄山大厦 总行餐厅  1楼周菜单 9.20-9.24.xls",
+      "sha256": "424d35abaf3789bc5693730f01c640dc72fe49882e343494d5b05a8ba2894afd"
+    },
+    {
+      "restaurant": "shuwang",
+      "filename": "蜀王餐厅一周菜单9.20-9.24.xlsx",
+      "sha256": "26c5af5b6df4b457824f5192d182fea77fdb017db1c7bf9f663aef7bc1263a7d"
+    }
+  ]
+}
