@@ -2,12 +2,33 @@ from datetime import date
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+import hashlib
+import json
 from unittest.mock import patch
 
-from import_menus import columns_for_dates, discover, period, parse_workbook
+from import_menus import columns_for_dates, discover, period, parse_workbook, fast_check
 
 
 class MenuDatesTest(unittest.TestCase):
+    def test_fast_check_detects_replacement_and_expired_coverage(self):
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / 'src').mkdir()
+            (root / 'src/menuData.ts').write_text('data')
+            workbook = root / 'menu.xls'
+            workbook.write_bytes(b'original')
+            manifest = {'sources': [{'restaurant': 'huangshan-1f', 'filename': workbook.name,
+                                     'sha256': hashlib.sha256(b'original').hexdigest()}]}
+            (root / 'src/menuSources.json').write_text(json.dumps(manifest))
+            latest = {'huangshan-1f': (date(2026, 9, 28), date(2026, 9, 30), 0, workbook, 2026)}
+            cache = root / 'cache.json'
+            with patch('import_menus.ROOT', root):
+                self.assertFalse(fast_check(latest, date(2026, 9, 28), cache)['changed'])
+                self.assertTrue(fast_check(latest, date(2026, 9, 29), cache)['metadata_cache_hit'])
+                self.assertFalse(fast_check(latest, date(2026, 10, 1), cache)['covers_today'])
+                workbook.write_bytes(b'new workbook')
+                self.assertTrue(fast_check(latest, date(2026, 9, 29), cache)['changed'])
+
     def test_renamed_first_floor_menu(self):
         with TemporaryDirectory() as temp:
             root = Path(temp)

@@ -31,6 +31,8 @@ python scripts/import_menus.py --source-root "<微信账号目录>/msg/file"
 
 输出为 `src/menuData.ts` 和 `src/menuSources.json`。相同输入重复运行不会产生变化。模板出现新工作表或日期冲突时需核对原表并调整解析器，不能凭空补菜单。
 
+定时检查先运行 `--fast-check`：仅检查最近月份的菜单文件名、修改时间和大小，使用本地缓存跳过未变化的 Excel；首次或元数据变化时才比较文件哈希。有变化再执行完整导入与发布。保留提前收到的有效菜单，避免仅按“今天修改”筛选而漏掉调休或跨月文件。无变化时不读取完整脚本、不访问 GitHub、不构建。缓存保存在忽略提交的 `.local-tools/menu-probe.json`。
+
 ## 定期更新与发布
 
 通过本地 Codex 当前任务的定时检查，每天北京时间 08:00、09:00、10:00、11:00 检查附件，覆盖周一早上、周末调休和节后首个工作日。无变化不提交；有变化则校验、构建并推送 `main`，由 `.github/workflows/deploy.yml` 发布 GitHub Pages。

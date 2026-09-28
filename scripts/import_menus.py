@@ -141,6 +141,9 @@ def discover(root, today):
     for directory in root.iterdir():
         if not directory.is_dir() or not re.fullmatch(r'\d{4}-\d{2}', directory.name):
             continue
+        month = date.fromisoformat(directory.name + '-01')
+        if not (today.replace(day=1) - timedelta(days=32) <= month <= today + timedelta(days=31)):
+            continue
         for path in directory.iterdir():
             if path.suffix.lower() not in ('.xls', '.xlsx') or path.name.startswith('~$'):
                 continue
@@ -163,13 +166,44 @@ def discover(root, today):
     return latest
 
 
+def fast_check(latest, today, cache_path):
+    manifest_path = ROOT / 'src/menuSources.json'
+    manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    sources = [{'restaurant': rid, 'filename': info[3].name,
+                'path': str(info[3].resolve()), 'mtime_ns': info[3].stat().st_mtime_ns,
+                'size': info[3].stat().st_size} for rid, info in latest.items()]
+    signature = {'sources': sources, 'manifest': manifest,
+                 'data_sha256': hashlib.sha256((ROOT / 'src/menuData.ts').read_bytes()).hexdigest(),
+                 'parser_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
+    try:
+        cached = json.loads(cache_path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        cached = None
+    unchanged = cached == signature
+    if not unchanged:
+        actual = [{'restaurant': rid, 'filename': info[3].name,
+                   'sha256': hashlib.sha256(info[3].read_bytes()).hexdigest()}
+                  for rid, info in latest.items()]
+        unchanged = actual == manifest['sources']
+        if unchanged:
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            cache_path.write_text(json.dumps(signature, ensure_ascii=False), encoding='utf-8')
+    start, end = next(iter(latest.values()))[:2]
+    return {'changed': not unchanged, 'fast_check': True, 'metadata_cache_hit': cached == signature,
+            'range': [start.isoformat(), end.isoformat()], 'covers_today': start <= today <= end}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source-root', type=Path, required=True, help='WeChat msg/file directory, without month')
     parser.add_argument('--today', type=date.fromisoformat, default=datetime.now(timezone(timedelta(hours=8))).date())
     parser.add_argument('--check', action='store_true', help='Validate without writing')
+    parser.add_argument('--fast-check', action='store_true', help='Check metadata/cache before opening Excel')
     args = parser.parse_args()
     latest = discover(args.source_root, args.today)
+    if args.fast_check:
+        print(json.dumps(fast_check(latest, args.today, ROOT / '.local-tools/menu-probe.json'), ensure_ascii=False))
+        return
     parsed = {key: parse_workbook(info[3], info[4]) for key, info in latest.items()}
     if set(parsed['huangshan-1f']) != set(parsed['shuwang']):
         raise ValueError('两家餐厅的供餐日期不一致')
