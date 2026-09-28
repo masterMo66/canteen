@@ -2,11 +2,40 @@ from datetime import date
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
-from import_menus import columns_for_dates, discover, period
+from import_menus import columns_for_dates, discover, period, parse_workbook
 
 
 class MenuDatesTest(unittest.TestCase):
+    def test_renamed_first_floor_menu(self):
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            folder = root / '2026-09'
+            folder.mkdir()
+            for filename in ('黄山大厦 总行餐厅 1楼周菜单9.20-9.24.xls',
+                             '黄山大厦1楼 新菜单9.28-9.30.xls',
+                             '蜀王餐厅一周菜单9.28-9.30.xlsx',
+                             '黄山大厦2楼 新菜单9.28-9.30.xls'):
+                (folder / filename).touch()
+            found = discover(root, date(2026, 9, 28))
+            self.assertEqual(found['huangshan-1f'][3].name, '黄山大厦1楼 新菜单9.28-9.30.xls')
+
+    def test_merged_tuesday_breakfast_announcement(self):
+        sheets = [
+            ('二楼早餐菜单', [['早餐9.28-9.30', '', '', ''], ['种类', '周一', '周二', '周三'],
+             ['蒸', '包子', '包子', '包子'], ['早餐新增', '本周二推出沙汤/锅贴\n温馨提示：按需取餐', '', ''],
+             ['', '', '', '']], [(3, 5, 0, 1), (3, 5, 1, 4)]),
+            ('二楼午餐菜单', [['菜单9.28-9.30', '', '', '', ''], ['种类', '种类', '周一', '周二', '周三'],
+             ['午餐', '主食', '饭', '饭', '饭'], ['晚餐', '主食', '面', '面', '面']], []),
+            ('三楼菜单', [['菜单9.28-9.30', '', '', ''], ['种类', '周一', '周二', '周三'], ['热菜', '菜', '菜', '菜']], []),
+        ]
+        with patch('import_menus.load_sheets', return_value=sheets):
+            parsed = parse_workbook(Path('蜀王餐厅一周菜单9.28-9.30.xlsx'), 2026)
+        self.assertEqual(parsed['2026-09-29']['早餐']['早餐新增'], ['沙汤', '锅贴'])
+        self.assertNotIn('早餐新增', parsed['2026-09-28']['早餐'])
+        self.assertNotIn('早餐新增', parsed['2026-09-30']['早餐'])
+
     def test_makeup_sunday(self):
         start, end = period('菜单9.20-9.24.xlsx', 2026)
         self.assertEqual(columns_for_dates(['种类', '周日', '周一', '周二', '周三', '周四'], start, end),
