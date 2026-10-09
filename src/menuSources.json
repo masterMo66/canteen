@@ -1,18 +1,18 @@
 {
   "range": [
-    "2026-09-28",
-    "2026-09-30"
+    "2026-10-08",
+    "2026-10-10"
   ],
   "sources": [
     {
       "restaurant": "huangshan-1f",
-      "filename": "黄山大厦1楼 新菜单9.28-9.30.xls",
-      "sha256": "b28df0c24e9c682e09ec4e2a05e0aef0550bb56f5e578351e4a9a591afb968b6"
+      "filename": "黄山大厦1楼 新菜单10.8-10.10.xls",
+      "sha256": "a51b963edd7c3e72408652bed2bcadd79186d3b18f4e208f56f8185c161fd13b"
     },
     {
       "restaurant": "shuwang",
-      "filename": "蜀王餐厅一周菜单9.28-9.30.xlsx",
-      "sha256": "b9dbb4e089ebc508ca452c5ac266d2379fa9251c2977f48c1b665dc895be894a"
+      "filename": "蜀王餐厅一周菜单10.8-10.10.xlsx",
+      "sha256": "7c30fbefea6186f1a3c6c8dcc4255ff199c95d9b3d5892e8f1f12d23af4f0b89"
     }
   ]
 }
