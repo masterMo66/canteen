@@ -96,12 +96,12 @@ def parse_workbook(path, year):
                 announcement = next((v for v in row[first_col:] if v), '')
                 if not announcement:
                     continue
-                match = re.fullmatch(r'本周([一二三四五六日天])推出(.+)', announcement.split('温馨提示')[0].strip(), re.S)
+                match = re.fullmatch(r'(?:本周|每周)([一二三四五六日天](?:、周[一二三四五六日天])*)推出(.+)', announcement.split('温馨提示')[0].strip(), re.S)
                 if not match:
                     raise ValueError(f'早餐新增日期或内容不明确: {announcement}')
-                weekday = WEEKDAYS.index(match[1].replace('天', '日'))
+                weekdays = {WEEKDAYS.index(value.replace('天', '日')) for value in re.findall(r'[一二三四五六日天]', match[1])}
                 for day in columns.values():
-                    if date.fromisoformat(day).weekday() == weekday:
+                    if date.fromisoformat(day).weekday() in weekdays:
                         items = [v.strip() for v in match[2].split('/') if v.strip()]
                         result.setdefault(day, {}).setdefault('早餐', {})['早餐新增'] = items
                 continue
@@ -152,7 +152,7 @@ def discover(root, today):
             if path.suffix.lower() not in ('.xls', '.xlsx') or path.name.startswith('~$'):
                 continue
             compact_name = re.sub(r'\s+', '', path.name)
-            key = 'huangshan-1f' if '黄山大厦' in compact_name and re.search(r'1楼(?:周|新)?菜单', compact_name) else 'shuwang' if '蜀王餐厅一周菜单' in compact_name else None
+            key = 'huangshan-1f' if '黄山大厦' in compact_name and re.search(r'1楼(?:周|新)?菜单', compact_name) else 'shuwang' if re.search(r'蜀王餐厅(?:一)?周菜单', compact_name) else None
             if not key:
                 continue
             folder_year, folder_month = map(int, directory.name.split('-'))

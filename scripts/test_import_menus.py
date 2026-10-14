@@ -42,6 +42,20 @@ class MenuDatesTest(unittest.TestCase):
             found = discover(root, date(2026, 9, 28))
             self.assertEqual(found['huangshan-1f'][3].name, '黄山大厦1楼 新菜单9.28-9.30.xls')
 
+    def test_renamed_shuwang_weekly_menu(self):
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            folder = root / '2026-10'
+            folder.mkdir()
+            for filename in ('黄山大厦1楼新菜单10.8-10.10.xls',
+                             '蜀王餐厅一周菜单10.8-10.10.xlsx',
+                             '黄山大厦 总行餐厅 1楼周菜单10.12-10.16.xls',
+                             '蜀王餐厅周菜单10.12-10.16.xlsx'):
+                (folder / filename).touch()
+            found = discover(root, date(2026, 10, 14))
+            self.assertEqual(found['shuwang'][3].name, '蜀王餐厅周菜单10.12-10.16.xlsx')
+            self.assertEqual(found['shuwang'][:2], found['huangshan-1f'][:2])
+
     def test_merged_tuesday_breakfast_announcement(self):
         sheets = [
             ('二楼早餐菜单', [['早餐9.28-9.30', '', '', ''], ['种类', '周一', '周二', '周三'],
@@ -57,6 +71,12 @@ class MenuDatesTest(unittest.TestCase):
         self.assertEqual(parsed['2026-09-29']['早餐']['早餐新增'], ['沙汤', '锅贴'])
         self.assertNotIn('早餐新增', parsed['2026-09-28']['早餐'])
         self.assertNotIn('早餐新增', parsed['2026-09-30']['早餐'])
+        sheets[0][1][3][1] = '每周一、周三推出现冲沙汤/现煎锅贴/小煎包\n温馨提示：按需取餐'
+        with patch('import_menus.load_sheets', return_value=sheets):
+            parsed = parse_workbook(Path('蜀王餐厅周菜单9.28-9.30.xlsx'), 2026)
+        for day in ('2026-09-28', '2026-09-30'):
+            self.assertEqual(parsed[day]['早餐']['早餐新增'], ['现冲沙汤', '现煎锅贴', '小煎包'])
+        self.assertNotIn('早餐新增', parsed['2026-09-29']['早餐'])
 
     def test_makeup_sunday(self):
         start, end = period('菜单9.20-9.24.xlsx', 2026)
