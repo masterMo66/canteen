@@ -78,6 +78,27 @@ class MenuDatesTest(unittest.TestCase):
             self.assertEqual(parsed[day]['早餐']['早餐新增'], ['现冲沙汤', '现煎锅贴', '小煎包'])
         self.assertNotIn('早餐新增', parsed['2026-09-29']['早餐'])
 
+    def test_spaced_meal_labels_and_footer_debris(self):
+        sheets = [
+            ('二楼早餐菜单', [['菜单10.19-10.23'], ['类别', '周一', '周二', '周三', '周四', '周五'],
+             ['蒸', '包子', '包子', '包子', '包子', '包子'],
+             ['早餐上新', '每周二、周四推出沙汤/锅贴', '', '', '', '']], []),
+            ('二楼午餐菜单', [['菜单10.19-10.23'], ['类别', '类别', '周一', '周二', '周三', '周四', '周五'],
+             ['中\n\n餐', '荤菜', '排骨', '排骨', '排骨', '排骨', '排骨'],
+             ['晚\n\n餐', '荤菜', '鸡肉', '鸡肉', '鸡肉', '鸡肉', '鸡肉']], []),
+            ('三楼菜单', [['菜单10.19-10.23'], ['类别', '周一', '周二', '周三', '周四', '周五'],
+             ['热菜', '牛肉', '牛肉', '牛肉', '牛肉', '牛肉'],
+             ['温馨提示：按需取餐', '', '', '', '', ''],
+             ['', '', '', '', '000000', '']], []),
+        ]
+        with patch('import_menus.load_sheets', return_value=sheets):
+            parsed = parse_workbook(Path('蜀王餐厅一周菜单10.19-10.23.xlsx'), 2026)
+        self.assertEqual(parsed['2026-10-19']['午餐']['荤菜'], ['排骨'])
+        self.assertEqual(parsed['2026-10-19']['晚餐']['荤菜'], ['鸡肉'])
+        self.assertEqual(parsed['2026-10-22']['三楼餐区']['热菜'], ['牛肉'])
+        self.assertEqual(parsed['2026-10-20']['早餐']['早餐新增'], ['沙汤', '锅贴'])
+        self.assertNotIn('早餐新增', parsed['2026-10-19']['早餐'])
+
     def test_makeup_sunday(self):
         start, end = period('菜单9.20-9.24.xlsx', 2026)
         self.assertEqual(columns_for_dates(['种类', '周日', '周一', '周二', '周三', '周四'], start, end),

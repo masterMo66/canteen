@@ -92,7 +92,10 @@ def parse_workbook(path, year):
         meal_name = '外卖' if takeout else '早餐' if breakfast else '三楼餐区' if third else '午餐'
         category = '外卖' if takeout else ''
         for row_index, row in enumerate(rows[2:], start=2):
-            if breakfast and row[0] == '早餐新增':
+            # Footer notes end the menu table; ignore formatting/editing debris below.
+            if any(re.match(r'^(?:温馨提示|备注)', value) for value in row[:max(first_col, 1)]):
+                break
+            if breakfast and row[0] in ('早餐新增', '早餐上新'):
                 announcement = next((v for v in row[first_col:] if v), '')
                 if not announcement:
                     continue
@@ -110,7 +113,7 @@ def parse_workbook(path, year):
                    for r0, r1, c0, c1 in merges):
                 continue
             if not takeout and not breakfast and not third:
-                label = row[0].replace('中餐', '午餐')
+                label = re.sub(r'\s+', '', row[0]).replace('中餐', '午餐')
                 if label in ('午餐', '晚餐'):
                     meal_name = label
                 category = row[first_col - 1] or category
