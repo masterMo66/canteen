@@ -66,6 +66,7 @@ class MenuDatesTest(unittest.TestCase):
             ('三楼菜单', [['菜单9.28-9.30', '', '', ''], ['种类', '周一', '周二', '周三'], ['热菜', '菜', '菜', '菜']], []),
         ]
         sheets.append(('晚餐定价', [['晚餐定价'], ['星期一（12月15日）'], ['旧价格']], []))
+        sheets.extend([('Sheet1', [], []), ('Sheet2', [['', ''], ['', '']], [])])
         with patch('import_menus.load_sheets', return_value=sheets):
             parsed = parse_workbook(Path('蜀王餐厅一周菜单9.28-9.30.xlsx'), 2026)
         self.assertEqual(parsed['2026-09-29']['早餐']['早餐新增'], ['沙汤', '锅贴'])

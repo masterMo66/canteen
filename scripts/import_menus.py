@@ -64,6 +64,8 @@ def parse_workbook(path, year):
     start, end = period(path.name, year)
     result = {}
     for name, rows, merges in load_sheets(path):
+        if not any(any(row) for row in rows):
+            continue
         # Pricing is supplemental, not the dated meal schedule. Its template
         # headers may be stale; never use it to infer dates or duplicate dishes.
         if name.strip() == '晚餐定价':
