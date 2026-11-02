@@ -55,6 +55,14 @@ class MenuDatesTest(unittest.TestCase):
             found = discover(root, date(2026, 10, 14))
             self.assertEqual(found['shuwang'][3].name, '蜀王餐厅周菜单10.12-10.16.xlsx')
             self.assertEqual(found['shuwang'][:2], found['huangshan-1f'][:2])
+            for separator in ('-', '—', '_', '－'):
+                with self.subTest(separator=separator):
+                    old = folder / '蜀王餐厅周菜单10.12-10.16.xlsx'
+                    renamed = folder / f'蜀王餐厅{separator}周菜单10.12-10.16.xlsx'
+                    old.rename(renamed)
+                    found = discover(root, date(2026, 10, 14))
+                    self.assertEqual(found['shuwang'][3], renamed)
+                    renamed.rename(old)
 
     def test_merged_tuesday_breakfast_announcement(self):
         sheets = [

@@ -157,7 +157,7 @@ def discover(root, today):
             if path.suffix.lower() not in ('.xls', '.xlsx') or path.name.startswith('~$'):
                 continue
             compact_name = re.sub(r'\s+', '', path.name)
-            key = 'huangshan-1f' if '黄山大厦' in compact_name and re.search(r'1楼(?:周|新)?菜单', compact_name) else 'shuwang' if re.search(r'蜀王餐厅(?:一)?周菜单', compact_name) else None
+            key = 'huangshan-1f' if '黄山大厦' in compact_name and re.search(r'1楼(?:周|新)?菜单', compact_name) else 'shuwang' if re.search(r'蜀王餐厅[-—_－]*(?:一)?周菜单', compact_name) else None
             if not key:
                 continue
             folder_year, folder_month = map(int, directory.name.split('-'))
