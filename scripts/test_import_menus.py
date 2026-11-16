@@ -80,7 +80,7 @@ class MenuDatesTest(unittest.TestCase):
         self.assertEqual(parsed['2026-09-29']['早餐']['早餐新增'], ['沙汤', '锅贴'])
         self.assertNotIn('早餐新增', parsed['2026-09-28']['早餐'])
         self.assertNotIn('早餐新增', parsed['2026-09-30']['早餐'])
-        sheets[0][1][3][1] = '每周一、周三推出现冲沙汤/现煎锅贴/小煎包\n温馨提示：按需取餐'
+        sheets[0][1][3][1] = '每周一、周三上新：现冲沙汤/现煎锅贴/小煎包\n温馨提示：按需取餐'
         with patch('import_menus.load_sheets', return_value=sheets):
             parsed = parse_workbook(Path('蜀王餐厅周菜单9.28-9.30.xlsx'), 2026)
         for day in ('2026-09-28', '2026-09-30'):

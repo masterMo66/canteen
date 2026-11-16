@@ -101,7 +101,7 @@ def parse_workbook(path, year):
                 announcement = next((v for v in row[first_col:] if v), '')
                 if not announcement:
                     continue
-                match = re.fullmatch(r'(?:本周|每周)([一二三四五六日天](?:、周[一二三四五六日天])*)推出(.+)', announcement.split('温馨提示')[0].strip(), re.S)
+                match = re.fullmatch(r'(?:本周|每周)([一二三四五六日天](?:、周[一二三四五六日天])*)(?:推出|上新[：:])(.+)', announcement.split('温馨提示')[0].strip(), re.S)
                 if not match:
                     raise ValueError(f'早餐新增日期或内容不明确: {announcement}')
                 weekdays = {WEEKDAYS.index(value.replace('天', '日')) for value in re.findall(r'[一二三四五六日天]', match[1])}
