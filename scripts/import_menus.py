@@ -82,7 +82,7 @@ def parse_workbook(path, year):
         takeout = '外卖' in name
         breakfast = '早餐' in name
         third = '三楼' in name
-        if not (takeout or breakfast or third or '午餐' in name):
+        if not (takeout or breakfast or third or '午餐' in name or '中晚餐' in name):
             raise ValueError(f'未识别的工作表: {name}')
         first_col = min(columns)
         # Fill merged labels only. Dish cells spanning rows are counted once.
@@ -97,7 +97,7 @@ def parse_workbook(path, year):
             # Footer notes end the menu table; ignore formatting/editing debris below.
             if any(re.match(r'^(?:温馨提示|备注)', value) for value in row[:max(first_col, 1)]):
                 break
-            if breakfast and row[0] in ('早餐新增', '早餐上新'):
+            if breakfast and row[0] in ('早餐新增', '早餐上新', '新品推出'):
                 announcement = next((v for v in row[first_col:] if v), '')
                 if not announcement:
                     continue
